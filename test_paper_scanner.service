@@ -1,0 +1,15 @@
+[Unit]
+Description=Test_Paper_Scanner
+
+[Service]
+WorkingDirectory=/opt/scanner/Test_Paper_Scanner
+User=root
+ExecStart=/opt/scanner/Test_Paper_Scanner/venv/bin/python3 /opt/scanner/Test_Paper_Scanner/Start_Test_Paper_Scanner.py
+Type=simple
+StartLimitBurst=5
+Restart=always
+RestartSec=10
+LimitNOFILE=4096
+LimitNPROC=4096
+[Install]
+WantedBy=multi-user.target
