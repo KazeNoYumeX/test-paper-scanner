@@ -11,7 +11,7 @@ pytesseract.pytesseract.tesseract_cmd = 'C:/Program Files/Tesseract-OCR/tesserac
 option_pattern = r'\(\w\)\s*([A-Za-z\s]+)'
 
 # 字元黑名單，用於過濾特定字元
-char_blacklist = ['~', '@', '#', '$', '%', '¢', '“', '‘', '’', '∞', 'θ', '÷', 'α', '•', 'à', '−', 'β', '∅', '³',]
+char_blacklist = ['~', '@', '#', '$', '%', '¢', '“', '‘', '’', '∞', 'θ', '•', 'à', 'β', '∅', '³']
 
 
 def pdf_to_images(pdf_path):
@@ -20,6 +20,8 @@ def pdf_to_images(pdf_path):
 
 # 圖片預處理和OCR識別
 def perform_ocr(pdf_images):
+    texts = []
+
     # 逐一處理每個圖像
     for i, image in enumerate(pdf_images):
         # 將圖像儲存為檔案
@@ -48,7 +50,12 @@ def perform_ocr(pdf_images):
         os.remove(preprocessed_image_path)
         os.remove(image_path)
 
-        return text
+        # 保存識別結果
+        after_process = post_process_text(text)
+        print(after_process)
+        texts.append(after_process)
+
+    return texts
 
 
 # 文本後處理，包括去除黑名單字元和其他後續處理操作
@@ -72,12 +79,12 @@ def extract_question_and_options(text):
 def main():
     # 讀取圖片並進行OCR識別
     pdf_path = 'test.pdf'
+    # pdf_path = 'test1.pdf'
     pdf_images = pdf_to_images(pdf_path)
     ocr_text = perform_ocr(pdf_images)
 
-    # 文本後處理
-    processed_text = post_process_text(ocr_text)
-    print(processed_text)
+    # ocr scan result
+    print(ocr_text)
 
 
 if __name__ == '__main__':
