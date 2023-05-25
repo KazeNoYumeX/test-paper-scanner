@@ -1,4 +1,5 @@
 import configparser
+
 from flask import Blueprint
 
 config = configparser.ConfigParser()

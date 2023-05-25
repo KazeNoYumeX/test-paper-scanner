@@ -1,11 +1,18 @@
 import datetime as dt
-from Test_Paper_Scanner.test_paper_scanner_logger import logger_handler
-from Test_Paper_Scanner.config_loader import config
+import io
 import os
+import re
 import cv2
+import pypandoc
 import pytesseract
-from pdf2image import convert_from_path
 from flask import Flask, request, jsonify
+from pdf2image import convert_from_path
+from pdfminer.converter import TextConverter
+from pdfminer.layout import LAParams
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.pdfpage import PDFPage
+from Test_Paper_Scanner.config_loader import config
+from Test_Paper_Scanner.test_paper_scanner_logger import logger_handler
 
 LOG_LEVEL = config['DEFAULT']['LOG_LEVEL']
 
@@ -80,7 +87,61 @@ def response_json(code=200, msg=None, data=None):
     })
 
 
-# 定義API路由
+# 將PDF轉換為文本
+def pdf_to_text(pdf_path):
+    rsrcmgr = PDFResourceManager()
+    retstr = io.StringIO()
+    codec = 'utf-8'
+    laparams = LAParams(line_margin=0.5, char_margin=2.0, word_margin=0.1, boxes_flow=0.5)
+    device = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
+    with open(pdf_path, 'rb') as fp:
+        interpreter = PDFPageInterpreter(rsrcmgr, device)
+        for page in PDFPage.get_pages(fp, check_extractable=True):
+            interpreter.process_page(page)
+    device.close()
+    text = retstr.getvalue()
+    retstr.close()
+    return text
+
+
+# 將文本轉換為Markdown
+def text_to_markdown(text):
+    output = pypandoc.convert_text(text, 'md', format='html')
+    return output
+
+
+# 調整Markdown格式
+def adjust_markdown(markdown):
+    # 在段落前插入空行
+    markdown = markdown.replace('\n\n', '\n\n\n')
+    # 調整標題格式
+    markdown = markdown.replace('#', '# ')
+
+    # 移除多餘的空白和換行
+    markdown = re.sub(r'\s+', ' ', markdown)
+
+    # 移除段落編號
+    markdown = re.sub(r'\d+\.', '', markdown)
+
+    # 在句子結尾加入換行符號
+    markdown = re.sub(r'([。？！])', r'\1\n\n', markdown)
+
+    # replace ╳ to x
+    markdown = markdown.replace('╳', 'x')
+
+    # replace ○１○２○３○４ to A B C D
+    markdown = markdown.replace('○１', ' A')
+    markdown = markdown.replace('○２', ' B')
+    markdown = markdown.replace('○３', ' C')
+    markdown = markdown.replace('○４', ' D')
+
+    # 移除開頭的換行符號
+    markdown = markdown.lstrip('\n')
+
+    return markdown
+
+
+# OCR
 @app.route('/question_ocr', methods=['POST'])
 def process_ocr():
     # 確保有上傳檔案
@@ -122,6 +183,46 @@ def process_ocr():
         os.remove(file_path)
 
         return response_json(200, None, {'texts': ocr_text})
+    except Exception as e:
+        return response_json(500, str(e))
+
+
+# PDF to Markdown
+@app.route('/pdf_to_markdown', methods=['POST'])
+def pdf_to_markdown():
+    # 確保有上傳檔案
+    if 'file' not in request.files:
+        return response_json(422, 'No file uploaded')
+
+    file = request.files['file']
+
+    # Check file type is pdf
+    mime_type = file.mimetype.split('/')[-1]
+
+    if mime_type == 'pdf':
+        file_path = 'uploaded_file.pdf'
+    else:
+        return response_json(405, 'File type not allowed')
+
+    try:
+        file.save(file_path)
+
+        markdown_path = 'output3.md'
+
+        # 提取PDF文本
+        text = pdf_to_text(file_path)
+
+        # 將文本轉換為Markdown
+        markdown = text_to_markdown(text)
+
+        # 調整Markdown格式
+        markdown = adjust_markdown(markdown)
+
+        # 將結果寫入文件
+        with open(markdown_path, 'w', encoding='utf-8') as f:
+            f.write(markdown)
+
+        return response_json(200)
     except Exception as e:
         return response_json(500, str(e))
 

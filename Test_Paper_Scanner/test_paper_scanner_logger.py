@@ -1,5 +1,6 @@
-import os
 import logging.handlers
+import os
+
 from Test_Paper_Scanner.config_loader import config
 
 MAX_LOG_SIZE_MB = config["DEFAULT"].getint("MAX_LOG_SIZE_MB")
